@@ -16,7 +16,7 @@ setup(
     "Operating System :: OS Independent",
   ],
   install_requires=[
-    'arweave-python-client@git+https://github.com/MikeHibbert/arweave-python-client'
+    'arweave-python-client>=1.0.15.dev0'
   ],
   entry_points={
       'console_scripts': [

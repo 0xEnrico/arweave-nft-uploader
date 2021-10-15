@@ -32,9 +32,12 @@ def main():
         with open(cache_filename, 'r') as f:
             cache_data = json.load(f)
     except Exception as ex:
-        logging.error(ex)
-        logging.error("Can't load cache file: " + str(cache_filename))
-        sys.exit()
+        cache_data = {"items": {}}
+    if "program" in cache_data:
+        logging.error("Cache file " + str(cache_filename) + " is already initialized with a candy machine program")
+        logging.error("I can't work on an already initialized candy machine program")
+        logging.error("Please delete cache file " + str(cache_filename) + " and retry")
+        sys.exit(1)
 
     # Load arweave wallet
     try:
@@ -43,7 +46,7 @@ def main():
     except Exception as ex:
         logging.error(ex)
         logging.error("Can't load arweave wallet: " + str(args.keypair))
-        sys.exit()
+        sys.exit(1)
 
     # Enumerate assets
     jsonfiles = glob.glob(os.path.join(args.directory, "*.json"))
@@ -146,5 +149,13 @@ def main():
             logging.error("Can't upload assets for json file: " + str(jsonfile) + ", skipping")
             continue
 
-        logging.info("Ending arweave wallet balance: {}".format(wallet.balance))
-        logging.info("Upload complete")
+    logging.info("")
+    logging.info("Ending arweave wallet balance: {}".format(wallet.balance))
+    logging.info("Upload complete")
+    logging.info("")
+    logging.info("Now you can run this metaplex command to initialize the candy machine program:")
+    logging.info("candy-machine-cli.ts upload <almost empty dir> -n {} --keypair <keypair file>"
+                 .format(len(cache_data["items"])))
+    logging.info("")
+    logging.info("*** It is VERY important that <almost empty dir> ONLY contains 0.json and 0.png ***")
+    logging.info("*** to avoid uploading again all the assets                                     ***")
