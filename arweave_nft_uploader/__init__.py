@@ -185,8 +185,8 @@ def main():
     logging.info("")
     logging.info("Ending Arweave wallet balance: {}".format(wallet.balance))
     if num_upload_errors > 0:
-        logging.info("There have been {} upload errors. "
+        logging.warning("There have been {} upload errors. "
                      "Please review them and retry the upload with the same command".format(num_upload_errors))
     else:
         logging.info("Upload complete! Now you can update the index with 'candy-machine-cli.ts upload'"
-                     " from the full assets directory (see documentation)")
+                     " using the full assets directory (see documentation)")

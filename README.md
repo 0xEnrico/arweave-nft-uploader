@@ -6,6 +6,9 @@ Arweave storage for use with the Metaplex Candy Machine.
 The tool has an additional (optional) feature to manage complex NFTs with multiple asset files
 (e.g. a PNG and an SVG). See more about it in this [section](#complex-nfts-with-multiple-asset-files).
 
+**This tool is for experienced users. I decline any responsibility for unneeded expenses caused by
+the incorrect usage of this tool. Read this guide carefully before using it.**
+
 ## Prerequisites
 * an Arweave wallet with enough tokens for the upload:
   * you can get a wallet here https://faucet.arweave.net/
@@ -64,17 +67,65 @@ optional arguments:
                         uploading both png and svg), instead of the default pair NNN.json/NNN.png
 ```
 
+In case you get an error like this at the end, it could be caused by upload errors or
+invalid asset structure in the json file:
+```console
+WARNING There have been 6 upload errors. Please review them and retry the upload with the same command
+```
+
+Please review the preceeding errors, fix the json files content if needed, then run
+``arweave-nft`` again with the same command line to retry.
+
+At the end, you should get this message, and you can proceed to the next section:
+
+```console
+INFO Upload complete! Now you can update the index with 'candy-machine-cli.ts upload' using the full assets directory (see documentation)
+```
+
 ## Rebuilding the Candy Machine index
 
 After the upload has completed successfully, you need to rebuild the Candy Machine index.
 
-This time you have to run ``candy-machine-cli.ts upload`` from the full assets directory:
+This time you have to run ``candy-machine-cli.ts upload`` using the ``<full assets directory>``:
 ```bash
-ts-node ~/metaplex-foundation/metaplex/js/packages/cli/src/candy-machine-cli.ts upload <full assets dir> -n <total number of NFTs> --keypair <Solana keypair file> --env <Solana cluster env name>
+ts-node ~/metaplex-foundation/metaplex/js/packages/cli/src/candy-machine-cli.ts upload <full assets directory> -n <total number of NFTs> --keypair <Solana keypair file> --env <Solana cluster env name>
 ```
-Don't worry, it will not reupload.
-If you have done everything correctly, you will see something like this:
+**!!! When you run this command, the command prompt MUST be in the same folder where you ran it previously to create the Candy Machine. !!!**
 
+Failure to do this will incur in unneeded expenses as you will recreate the Candy Machine and start upload assets
+through the Candy Machine itself.
+
+The only thing you need to change is the argument of the command from
+``<single asset directory>`` to ``<full assets directory>``.
+
+If you have done everything correctly at this point, it will not re-upload.
+
+You will see a very quick ``Processing file`` log:
+```console
+Processing file: 0
+Processing file: 50
+Processing file: 100
+...
+Processing file: 850
+Processing file: 900
+Processing file: 950
+```
+
+Then a slower set of ``Writing indices`` lines:
+
+```
+Writing indices 0-9
+Writing indices 10-19
+Writing indices 20-29
+...
+```
+
+At this point the process is complete, and you can run ``candy-machine-cli.ts verify``:
+```bash
+ts-node ~/metaplex-foundation/metaplex/js/packages/cli/src/candy-machine-cli.ts verify --env <Solana cluster env name>
+```
+
+If you have followed everything correctly, verify will succeed for all files, and your upload will be done!
 
 ## Complex NFTs with multiple asset files
 
