@@ -25,6 +25,22 @@ def main():
     level = levels[min(len(levels) - 1, args.verbose)]  # capped to number of levels
     logging.basicConfig(level=level, format="%(levelname)s %(message)s")
 
+    # Enumerate assets
+    try:
+        jsonfiles_raw = glob.glob(os.path.join(args.directory, "*.json"))
+        jsonfiles = []
+        for jsonfile in jsonfiles_raw:
+            # Filename without extension is the cache item
+            cache_item, tmp = os.path.splitext(os.path.basename(jsonfile))
+            if cache_item.isdigit():
+                jsonfiles.append(jsonfile)
+            else:
+                logging.warning("Json file: " + str(jsonfile) + " is not in the format <number>.json, skipping")
+    except Exception as ex:
+        logging.error(ex)
+        logging.error("Can't enumerate assets in directory: " + str(args.directory))
+        sys.exit(1)
+
     # Load cache file
     cache_filename = ""
     try:
@@ -32,24 +48,33 @@ def main():
         with open(cache_filename, 'r') as f:
             cache_data = json.load(f)
     except Exception as ex:
-        cache_data = {"items": {}}
-    if "program" in cache_data:
-        logging.error("Cache file " + str(cache_filename) + " is already initialized with a candy machine program")
-        logging.error("I can't work on an already initialized candy machine program")
-        logging.error("Please delete cache file " + str(cache_filename) + " and retry")
+        cache_data = {}
+    if "program" not in cache_data or "items" not in cache_data or "0" not in cache_data["items"]:
+        logging.error("")
+        logging.error("Cache file " + str(cache_filename) + " is not initialized with a candy machine program")
+        logging.error("")
+        logging.error("You must initialize the candy machine program with a single 0.json and 0.png file,")
+        logging.error("specifying the total number of NFTs with the -n option, like this:")
+        logging.error("")
+        logging.error("ts-node ~/metaplex-foundation/metaplex/js/packages/cli/src/candy-machine-cli.ts"
+                      " upload <single asset dir> -n {} --keypair <keypair file> --env <env name>".format(
+            len(jsonfiles)))
+        logging.error("")
+        logging.error("*** It is VERY important that <single asset dir> ONLY contains 0.json and 0.png ***")
+        logging.error("*** to avoid uploading all the assets with candy-machine-cli.ts                 ***")
         sys.exit(1)
 
     # Load arweave wallet
     try:
         wallet = Wallet(args.keypair)
-        logging.info("Initial arweave wallet balance: {}".format(wallet.balance))
+        logging.info("Initial Arweave wallet balance: {}".format(wallet.balance))
     except Exception as ex:
         logging.error(ex)
-        logging.error("Can't load arweave wallet: " + str(args.keypair))
+        logging.error("Can't load Arweave wallet: " + str(args.keypair))
         sys.exit(1)
 
-    # Enumerate assets
-    jsonfiles = glob.glob(os.path.join(args.directory, "*.json"))
+    # Upload assets
+    num_upload_errors = 0
     logging.info("Starting the upload for {} assets".format(len(jsonfiles)))
     for idx, jsonfile in enumerate(jsonfiles):
         # Filename without extension is the cache item
@@ -60,8 +85,9 @@ def main():
 
         # Check if the asset is already in cache and already uploaded, unless --force-upload flag is specified
         if not args.force_upload:
-            if cache_item in cache_data["items"] and cache_data["items"][cache_item]["onChain"]:
-                logging.debug("Skipping already uploaded file: {}" + str(jsonfile))
+            if cache_item in cache_data["items"] and "uploadedToArweave" in cache_data["items"][cache_item] \
+                    and cache_data["items"][cache_item]["uploadedToArweave"]:
+                logging.debug("Skipping already uploaded file: " + str(jsonfile))
                 continue
 
         # Load json file
@@ -76,6 +102,7 @@ def main():
         except Exception as ex:
             logging.error(ex)
             logging.error("Can't load json file: " + str(jsonfile)) + ", skipping"
+            num_upload_errors += 1
             continue
 
         # Get asset name
@@ -84,6 +111,7 @@ def main():
         except Exception as ex:
             logging.error(ex)
             logging.error("Json file: " + str(jsonfile)) + " has no name, skipping"
+            num_upload_errors += 1
             continue
 
         # Locate asset files
@@ -91,10 +119,10 @@ def main():
         try:
             if args.assets_from_json:
                 files = asset_data["properties"]["files"]
-                for idx, tmp in enumerate(asset_data["properties"]["files"]):
-                    asset_file = os.path.join(args.directory, files[idx]["uri"])
+                for idx2, tmp in enumerate(asset_data["properties"]["files"]):
+                    asset_file = os.path.join(args.directory, files[idx2]["uri"])
                     if os.path.isfile(asset_file):
-                        asset_files.append({"file": asset_file, "type": files[idx]["type"], "idx": idx})
+                        asset_files.append({"file": asset_file, "type": files[idx2]["type"], "idx": idx2})
                     else:
                         raise Exception("Can't find asset file: " + str(asset_file))
             else:
@@ -107,6 +135,7 @@ def main():
         except Exception as ex:
             logging.error(ex)
             logging.error("Can't find all assets for json file: " + str(jsonfile) + ", skipping")
+            num_upload_errors += 1
             continue
 
         try:
@@ -128,6 +157,11 @@ def main():
                     if not has_asset_image and asset_fileext == "png":
                         has_asset_image = True
                         asset_data["image"] = uri
+            if not has_asset_image:
+                logging.error(ex)
+                logging.error("At least one png image is required for json file: " + str(jsonfile) + ", skipping")
+                num_upload_errors += 1
+                continue
 
             # Upload metadata
             tx = Transaction(wallet, data=json.dumps(asset_data))
@@ -136,26 +170,23 @@ def main():
             tx.send()
             txdict = tx.to_dict()
             uri = "https://arweave.net/{}".format(txdict["id"])
-            if cache_item not in cache_data["items"]:
-                cache_data["items"][cache_item] = {"link": uri, "name": asset_name, "onChain": True}
-            else:
-                cache_data["items"][cache_item]["link"] = uri
-                cache_data["items"][cache_item]["name"] = asset_name
-                cache_data["items"][cache_item]["onChain"] = True
+            cache_data["items"][cache_item] = {"link": uri,
+                                               "name": asset_name,
+                                               "onChain": False,
+                                               "uploadedToArweave": True}
             with open(cache_filename, 'w') as f:
                 json.dump(cache_data, f)
         except Exception as ex:
             logging.error(ex)
             logging.error("Can't upload assets for json file: " + str(jsonfile) + ", skipping")
+            num_upload_errors += 1
             continue
 
     logging.info("")
-    logging.info("Ending arweave wallet balance: {}".format(wallet.balance))
-    logging.info("Upload complete")
-    logging.info("")
-    logging.info("Now you can run this metaplex command to initialize the candy machine program:")
-    logging.info("candy-machine-cli.ts upload <almost empty dir> -n {} --keypair <keypair file>"
-                 .format(len(cache_data["items"])))
-    logging.info("")
-    logging.info("*** It is VERY important that <almost empty dir> ONLY contains 0.json and 0.png ***")
-    logging.info("*** to avoid uploading again all the assets                                     ***")
+    logging.info("Ending Arweave wallet balance: {}".format(wallet.balance))
+    if num_upload_errors > 0:
+        logging.info("There have been {} upload errors. "
+                     "Please review them and retry the upload with the same command".format(num_upload_errors))
+    else:
+        logging.info("Upload complete! Now you can update the index with 'candy-machine-cli.ts upload'"
+                     " from the full assets directory (see documentation)")
