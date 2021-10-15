@@ -118,11 +118,15 @@ Writing indices 0-9
 Writing indices 10-19
 Writing indices 20-29
 ...
+Writing indices 970-979
+Writing indices 980-989
+Writing indices 990-999
+Done. Successful = true.
 ```
 
 At this point the process is complete, and you can run ``candy-machine-cli.ts verify``:
 ```bash
-ts-node ~/metaplex-foundation/metaplex/js/packages/cli/src/candy-machine-cli.ts verify --env <Solana cluster env name>
+ts-node ~/metaplex-foundation/metaplex/js/packages/cli/src/candy-machine-cli.ts verify --keypair <Solana keypair file> --env <Solana cluster env name>
 ```
 
 If you have followed everything correctly, verify will succeed for all files, and your upload will be done!
