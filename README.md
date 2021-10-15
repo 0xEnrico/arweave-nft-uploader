@@ -90,7 +90,7 @@ This time you have to run ``candy-machine-cli.ts upload`` using the ``<full asse
 ```bash
 ts-node ~/metaplex-foundation/metaplex/js/packages/cli/src/candy-machine-cli.ts upload <full assets directory> -n <total number of NFTs> --keypair <Solana keypair file> --env <Solana cluster env name>
 ```
-**!!! When you run this command, the command prompt MUST be in the same folder where you ran it previously to create the Candy Machine. !!!**
+** :warning: When you run this command, the command prompt MUST be in the same folder where you ran it previously to create the Candy Machine. :warning: **
 
 Failure to do this will incur in unneeded expenses as you will recreate the Candy Machine and start upload assets
 through the Candy Machine itself.
