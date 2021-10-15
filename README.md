@@ -113,7 +113,7 @@ Processing file: 950
 
 Then a slower set of ``Writing indices`` lines:
 
-```
+```console
 Writing indices 0-9
 Writing indices 10-19
 Writing indices 20-29
