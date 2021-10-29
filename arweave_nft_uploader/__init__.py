@@ -158,7 +158,6 @@ def main():
                         has_asset_image = True
                         asset_data["image"] = uri
             if not has_asset_image:
-                logging.error(ex)
                 logging.error("At least one png image is required for json file: " + str(jsonfile) + ", skipping")
                 num_upload_errors += 1
                 continue

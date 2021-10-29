@@ -158,7 +158,8 @@ on the Arweave blockchain with all the links.
 
 ## Donations
 
-If this project provides you a smoother experience while uploading your NFT assets to Arweave, I will appreciate a small donation to my Arweave wallet :)
+If this project provides you a smoother experience while uploading your NFT assets to Arweave, I will appreciate a small donation :)
 ```
-bxQ7fygEV2meOp_z_3TZyy-VWbSCuzYRWnIE0FANQZo
+SOL: 3qdHbM9ZHFFn4M7E9GZBNdA6wi7idqgGHrXZ4xYgpu66
+AR: bxQ7fygEV2meOp_z_3TZyy-VWbSCuzYRWnIE0FANQZo
 ```
