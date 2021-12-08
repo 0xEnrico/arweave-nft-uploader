@@ -6,7 +6,8 @@ from arweave.transaction_uploader import get_uploader
 import os
 import sys
 import glob
-
+from joblib import Parallel, delayed
+import threading
 
 def main():
     parser = argparse.ArgumentParser()
@@ -16,6 +17,7 @@ def main():
     parser.add_argument('-c', '--cache-name', default='temp', help='Cache file name (default: "temp")')
     parser.add_argument('--force-upload', action='store_true',
                         help='Force upload all assets, even the ones that have already been uploaded')
+    parser.add_argument('--parallel-upload', type=int, default=1, help='Parallel upload using N threads')
     parser.add_argument('--assets-from-json', action='store_true',
                         help='If this flag is specified, assets file names are read from properties.files.uri/type'
                              ' (e.g. for uploading both png and svg), instead of the default pair NNN.json/NNN.png')
@@ -74,21 +76,23 @@ def main():
         sys.exit(1)
 
     # Upload assets
-    num_upload_errors = 0
+    upload_status = {'num_upload_errors': 0}
+    lock = threading.Lock()
     logging.info("Starting the upload for {} assets".format(len(jsonfiles)))
-    for idx, jsonfile in enumerate(jsonfiles):
+
+    def upload_file(idx, jsonfile):
         # Filename without extension is the cache item
         cache_item, tmp = os.path.splitext(os.path.basename(jsonfile))
         if not cache_item.isdigit():
             logging.warning("Json file: " + str(jsonfile) + " is not in the format <number>.json, skipping")
-            continue
+            return
 
         # Check if the asset is already in cache and already uploaded, unless --force-upload flag is specified
         if not args.force_upload:
             if cache_item in cache_data["items"] and "uploadedToArweave" in cache_data["items"][cache_item] \
                     and cache_data["items"][cache_item]["uploadedToArweave"]:
                 logging.debug("Skipping already uploaded file: " + str(jsonfile))
-                continue
+                return
 
         # Load json file
         msg = "Processing file: {}".format(idx)
@@ -102,8 +106,8 @@ def main():
         except Exception as ex:
             logging.error(ex)
             logging.error("Can't load json file: " + str(jsonfile)) + ", skipping"
-            num_upload_errors += 1
-            continue
+            upload_status['num_upload_errors'] += 1
+            return
 
         # Get asset name
         try:
@@ -111,8 +115,8 @@ def main():
         except Exception as ex:
             logging.error(ex)
             logging.error("Json file: " + str(jsonfile)) + " has no name, skipping"
-            num_upload_errors += 1
-            continue
+            upload_status['num_upload_errors'] += 1
+            return
 
         # Locate asset files
         asset_files = []
@@ -135,8 +139,8 @@ def main():
         except Exception as ex:
             logging.error(ex)
             logging.error("Can't find all assets for json file: " + str(jsonfile) + ", skipping")
-            num_upload_errors += 1
-            continue
+            upload_status['num_upload_errors'] += 1
+            return
 
         try:
             # Upload asset files
@@ -159,8 +163,8 @@ def main():
                         asset_data["image"] = uri
             if not has_asset_image:
                 logging.error("At least one png image is required for json file: " + str(jsonfile) + ", skipping")
-                num_upload_errors += 1
-                continue
+                upload_status['num_upload_errors'] += 1
+                return
 
             # Upload metadata
             tx = Transaction(wallet, data=json.dumps(asset_data))
@@ -169,23 +173,27 @@ def main():
             tx.send()
             txdict = tx.to_dict()
             uri = "https://arweave.net/{}".format(txdict["id"])
-            cache_data["items"][cache_item] = {"link": uri,
-                                               "name": asset_name,
-                                               "onChain": False,
-                                               "uploadedToArweave": True}
-            with open(cache_filename, 'w') as f:
-                json.dump(cache_data, f)
+            with lock:
+                cache_data["items"][cache_item] = {"link": uri,
+                                                    "name": asset_name,
+                                                    "onChain": False,
+                                                    "uploadedToArweave": True}
+                with open(cache_filename, 'w') as f:
+                    json.dump(cache_data, f)
         except Exception as ex:
             logging.error(ex)
             logging.error("Can't upload assets for json file: " + str(jsonfile) + ", skipping")
-            num_upload_errors += 1
-            continue
+            upload_status['num_upload_errors'] += 1
+            return
+
+    with Parallel(n_jobs=args.parallel_upload, require='sharedmem') as parallel:
+        parallel(delayed(upload_file)(idx, jsonfile) for idx, jsonfile in enumerate(jsonfiles))
 
     logging.info("")
     logging.info("Ending Arweave wallet balance: {}".format(wallet.balance))
-    if num_upload_errors > 0:
+    if upload_status['num_upload_errors'] > 0:
         logging.warning("There have been {} upload errors. "
-                     "Please review them and retry the upload with the same command".format(num_upload_errors))
+                     "Please review them and retry the upload with the same command".format(upload_status['num_upload_errors']))
     else:
         logging.info("Upload complete! Now you can update the index with 'candy-machine-cli.ts upload'"
                      " using the full assets directory (see documentation)")

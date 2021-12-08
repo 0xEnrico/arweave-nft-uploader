@@ -3,7 +3,7 @@ from distutils.core import setup
 setup(
   name="arweave-nft-uploader",
   packages = ['arweave_nft_uploader'],
-  version="0.0.1",
+  version="0.0.2",
   description="Client interface for sending NFTs to the Arweave permaweb",
   author="0xEnrico",
   author_email="0xEnrico@gmail.com",
@@ -16,7 +16,8 @@ setup(
     "Operating System :: OS Independent",
   ],
   install_requires=[
-    'arweave-python-client>=1.0.15.dev0'
+    'arweave-python-client>=1.0.15.dev0',
+    'joblib>=1.0.0',
   ],
   entry_points={
       'console_scripts': [
