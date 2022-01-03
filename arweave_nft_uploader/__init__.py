@@ -166,22 +166,22 @@ def main():
                 continue
 
             # Upload metadata
-            fp = tempfile.NamedTemporaryFile()
-            fp.write(json.dumps(asset_data).encode('utf-8'))
-            fp.seek(0)
-            tx = Transaction(wallet, file_handler=fp, file_path=fp.name)
-            tx.add_tag('Content-Type', "application/json")
-            tx.sign()
-            fp.seek(0)
-            uploader = get_uploader(tx, fp)
-            while not uploader.is_complete:
-                uploader.upload_chunk()
-            txdict = tx.to_dict()
-            uri = "https://arweave.net/{}".format(txdict["id"])
-            cache_data["items"][cache_item] = {"link": uri,
-                                               "name": asset_name,
-                                               "onChain": False,
-                                               "uploadedToArweave": True}
+            with tempfile.NamedTemporaryFile() as fp:
+                fp.write(json.dumps(asset_data).encode('utf-8'))
+                fp.flush()
+                fp.seek(0)
+                tx = Transaction(wallet, file_handler=fp, file_path=fp.name)
+                tx.add_tag('Content-Type', "application/json")
+                tx.sign()
+                uploader = get_uploader(tx, fp)
+                while not uploader.is_complete:
+                    uploader.upload_chunk()
+                txdict = tx.to_dict()
+                uri = "https://arweave.net/{}".format(txdict["id"])
+                cache_data["items"][cache_item] = {"link": uri,
+                                                "name": asset_name,
+                                                "onChain": False,
+                                                "uploadedToArweave": True}
             with open(cache_filename, 'w') as f:
                 json.dump(cache_data, f)
         except Exception as ex:
