@@ -5,6 +5,7 @@ from arweave import Wallet, Transaction
 from arweave.transaction_uploader import get_uploader
 import os
 import sys
+import tempfile
 import glob
 
 
@@ -165,10 +166,16 @@ def main():
                 continue
 
             # Upload metadata
-            tx = Transaction(wallet, data=json.dumps(asset_data))
+            fp = tempfile.NamedTemporaryFile()
+            fp.write(json.dumps(asset_data).encode('utf-8'))
+            fp.seek(0)
+            tx = Transaction(wallet, file_handler=fp, file_path=fp.name)
             tx.add_tag('Content-Type', "application/json")
             tx.sign()
-            tx.send()
+            fp.seek(0)
+            uploader = get_uploader(tx, fp)
+            while not uploader.is_complete:
+                uploader.upload_chunk()
             txdict = tx.to_dict()
             uri = "https://arweave.net/{}".format(txdict["id"])
             cache_data["items"][cache_item] = {"link": uri,
