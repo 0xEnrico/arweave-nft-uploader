@@ -166,7 +166,7 @@ def main():
                 continue
 
             # Upload metadata
-            with tempfile.NamedTemporaryFile(mode='w+t') as fp:
+            with tempfile.NamedTemporaryFile() as fp:
                 fp.write(json.dumps(asset_data).encode('utf-8'))
                 fp.flush()
                 fp.seek(0)
