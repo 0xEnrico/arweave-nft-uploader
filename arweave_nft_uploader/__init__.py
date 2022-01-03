@@ -5,6 +5,7 @@ from arweave import Wallet, Transaction
 from arweave.transaction_uploader import get_uploader
 import os
 import sys
+import tempfile
 import glob
 
 
@@ -43,12 +44,14 @@ def main():
 
     # Load cache file
     cache_filename = ""
-    try:
-        cache_filename = os.path.join('.cache', args.env + "-" + args.cache_name + ".json")
-        with open(cache_filename, 'r') as f:
-            cache_data = json.load(f)
-    except Exception as ex:
-        cache_data = {}
+    for cache_extension in ["", ".json"]:
+        try:
+            cache_filename = os.path.join('.cache', args.env + "-" + args.cache_name + cache_extension)
+            with open(cache_filename, 'r') as f:
+                cache_data = json.load(f)
+            break
+        except Exception as ex:
+            cache_data = {}
     if "program" not in cache_data or "items" not in cache_data or "0" not in cache_data["items"]:
         logging.error("")
         logging.error("Cache file " + str(cache_filename) + " is not initialized with a candy machine program")
@@ -163,16 +166,22 @@ def main():
                 continue
 
             # Upload metadata
-            tx = Transaction(wallet, data=json.dumps(asset_data))
-            tx.add_tag('Content-Type', "application/json")
-            tx.sign()
-            tx.send()
-            txdict = tx.to_dict()
-            uri = "https://arweave.net/{}".format(txdict["id"])
-            cache_data["items"][cache_item] = {"link": uri,
-                                               "name": asset_name,
-                                               "onChain": False,
-                                               "uploadedToArweave": True}
+            with tempfile.NamedTemporaryFile() as fp:
+                fp.write(json.dumps(asset_data).encode('utf-8'))
+                fp.flush()
+                fp.seek(0)
+                tx = Transaction(wallet, file_handler=fp, file_path=fp.name)
+                tx.add_tag('Content-Type', "application/json")
+                tx.sign()
+                uploader = get_uploader(tx, fp)
+                while not uploader.is_complete:
+                    uploader.upload_chunk()
+                txdict = tx.to_dict()
+                uri = "https://arweave.net/{}".format(txdict["id"])
+                cache_data["items"][cache_item] = {"link": uri,
+                                                "name": asset_name,
+                                                "onChain": False,
+                                                "uploadedToArweave": True}
             with open(cache_filename, 'w') as f:
                 json.dump(cache_data, f)
         except Exception as ex:
