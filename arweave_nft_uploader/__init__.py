@@ -44,7 +44,7 @@ def main():
     # Load cache file
     cache_filename = ""
     try:
-        cache_filename = os.path.join('.cache', args.env + "-" + args.cache_name)
+        cache_filename = os.path.join('.cache', args.env + "-" + args.cache_name + ".json")
         with open(cache_filename, 'r') as f:
             cache_data = json.load(f)
     except Exception as ex:
