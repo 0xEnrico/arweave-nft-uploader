@@ -43,12 +43,14 @@ def main():
 
     # Load cache file
     cache_filename = ""
-    try:
-        cache_filename = os.path.join('.cache', args.env + "-" + args.cache_name)
-        with open(cache_filename, 'r') as f:
-            cache_data = json.load(f)
-    except Exception as ex:
-        cache_data = {}
+    for cache_extension in ["", ".json"]:
+        try:
+            cache_filename = os.path.join('.cache', args.env + "-" + args.cache_name + cache_extension)
+            with open(cache_filename, 'r') as f:
+                cache_data = json.load(f)
+            break
+        except Exception as ex:
+            cache_data = {}
     if "program" not in cache_data or "items" not in cache_data or "0" not in cache_data["items"]:
         logging.error("")
         logging.error("Cache file " + str(cache_filename) + " is not initialized with a candy machine program")
